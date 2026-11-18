@@ -12,6 +12,10 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 # You can pin a specific one (see https://ai.google.dev/gemini-api/docs/models).
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-flash-latest")
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", CHAT_MODEL)
+# Free-tier safety net: if the main model hits its quota, try these in order.
+# Gemini models are named as-is; Groq models (free tier, no card) use the "groq:" prefix.
+FALLBACK_MODELS = [m.strip() for m in os.getenv("FALLBACK_MODELS", "").split(",") if m.strip()]
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
 
@@ -30,3 +34,5 @@ MCP_SERVER_PATH = ROOT / "app" / "mcp_server.py"
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 ALLOW_UPLOADS = os.getenv("ALLOW_UPLOADS", "true").lower() == "true"
 RATE_LIMIT_PER_HOUR = int(os.getenv("RATE_LIMIT_PER_HOUR", "0"))   # 0 = unlimited
+# Saved answers: identical questions are answered from the database (no LLM quota used).
+ANSWER_CACHE = os.getenv("ANSWER_CACHE", "true").lower() == "true"

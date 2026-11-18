@@ -15,6 +15,7 @@ import json
 import sys
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import ModelFallbackMiddleware
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -61,13 +62,30 @@ def mcp_client() -> MultiServerMCPClient:
     })
 
 
+def make_llm(name: str):
+    """'gemini-...' -> Gemini, 'groq:<model>' -> Groq (free tier)."""
+    if name.startswith("groq:"):
+        from langchain_groq import ChatGroq
+        return ChatGroq(model=name[5:], temperature=0, max_retries=1,
+                        api_key=config.GROQ_API_KEY or None)
+    # max_retries=1: on a quota error, fail fast so the fallback model takes over.
+    return ChatGoogleGenerativeAI(model=name, temperature=0, max_retries=1,
+                                  api_key=config.GOOGLE_API_KEY or None)
+
+
 async def build_agent(llm=None):
     """Create the agent. Loads tools from the MCP server + our local RAG tool."""
     mcp_tools = await mcp_client().get_tools()
     tools = [search_financial_reports, *mcp_tools]
-    llm = llm or ChatGoogleGenerativeAI(model=config.CHAT_MODEL, temperature=0,
-                                        api_key=config.GOOGLE_API_KEY or None)
-    return create_agent(llm, tools, system_prompt=SYSTEM_PROMPT), [t.name for t in tools]
+    middleware = []
+    if llm is None:
+        llm = make_llm(config.CHAT_MODEL)
+        fallbacks = [m for m in config.FALLBACK_MODELS
+                     if not m.startswith("groq:") or config.GROQ_API_KEY]
+        if fallbacks:
+            middleware.append(ModelFallbackMiddleware(*[make_llm(m) for m in fallbacks]))
+    agent = create_agent(llm, tools, system_prompt=SYSTEM_PROMPT, middleware=middleware)
+    return agent, [t.name for t in tools]
 
 
 def _text(msg) -> str:
@@ -96,7 +114,9 @@ async def ask(agent, question: str) -> dict:
                     contexts.append(a["text"])
             elif m.tool_call_id in by_id:
                 by_id[m.tool_call_id]["result"] = _text(m)[:500]
-    return {"question": question, "answer": _text(msgs[-1]), "tool_calls": steps,
+    meta = getattr(msgs[-1], "response_metadata", {}) or {}
+    model = meta.get("model_name") or meta.get("model") or ""
+    return {"question": question, "answer": _text(msgs[-1]), "model": model, "tool_calls": steps,
             "sources": list(sources.values()), "contexts": contexts}
 
 

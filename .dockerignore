@@ -1,0 +1,8 @@
+.env
+.venv/
+venv/
+.git/
+.netlify/
+__pycache__/
+docs/
+eval/results.json

@@ -635,7 +635,10 @@ function fillAnswer(el, d, secs) {
   card.innerHTML = `
     <div class="ai-head"><b>Research agent</b>
       <div class="chips">
-        <span class="chip">${icon("i-check", 12)} ${secs.toFixed(1)}s</span>
+        ${d.cached
+          ? `<span class="chip" title="Saved ${esc(new Date(d.cached_at).toLocaleString())}. Identical questions are answered from the database, using no LLM quota.">${icon("i-check", 12)} saved answer</span>`
+          : `<span class="chip">${icon("i-check", 12)} ${secs.toFixed(1)}s</span>`}
+        ${d.model ? `<span class="chip" title="Model that wrote this answer">${esc(String(d.model).replace(/^models\//, ""))}</span>` : ""}
         <span class="chip">${d.tool_calls.length} tool call${d.tool_calls.length === 1 ? "" : "s"}</span>
         ${d.sources.length ? `<span class="chip">${d.sources.length} sources</span>` : ""}
         ${kinds.has("market") ? `<span class="chip">live data</span>` : ""}

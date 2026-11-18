@@ -14,7 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from app import config
+from fastapi.concurrency import run_in_threadpool
+
+from app import cache, config
 from app.agent import ask, build_agent
 from app.ingest import ingest
 
@@ -68,6 +70,9 @@ class Source(BaseModel):
 class AskResponse(BaseModel):
     question: str
     answer: str
+    model: str = ""
+    cached: bool = False
+    cached_at: str | None = None
     tool_calls: list[dict]
     sources: list[Source]
 
@@ -80,12 +85,26 @@ def health():
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_endpoint(req: AskRequest, request: Request):
+    # 1) Saved answer? Instant, and doesn't count against the visitor's limit or the LLM quota.
+    if config.ANSWER_CACHE:
+        try:
+            hit = await run_in_threadpool(cache.get, req.question)
+            if hit:
+                return hit
+        except Exception as e:          # cache trouble must never break answering
+            print("answer cache read failed:", e)
+    # 2) Otherwise run the agent.
     _rate_limit(request)
     try:
         out = await ask(STATE["agent"], req.question)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
     out.pop("contexts", None)
+    if config.ANSWER_CACHE and out["answer"].strip():
+        try:
+            await run_in_threadpool(cache.put, req.question, out)
+        except Exception as e:
+            print("answer cache write failed:", e)
     return out
 
 
