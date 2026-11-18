@@ -1,8 +1,8 @@
-# Container for the API + chat UI. Used by Hugging Face Spaces (free CPU tier),
-# and works on any Docker host (Render, Railway, Cloud Run...).
+# Container for the API + chat UI (optional: Render uses render.yaml without Docker).
+# Works on any Docker host (Railway, Cloud Run, Fly, Koyeb...).
 FROM python:3.10-slim
 
-# Hugging Face Spaces runs containers as user 1000
+# Run as a non-root user
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH PYTHONUNBUFFERED=1
