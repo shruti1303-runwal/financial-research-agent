@@ -1,0 +1,14 @@
+langchain>=1.0
+langchain-core>=1.0
+langchain-google-genai>=3.0
+langchain-postgres>=0.0.15
+langchain-mcp-adapters>=0.1
+langchain-text-splitters>=0.3
+mcp[cli]>=1.10
+fastapi>=0.115
+uvicorn[standard]
+psycopg[binary]>=3.2
+pypdf
+python-dotenv
+yfinance>=0.2.50
+python-multipart

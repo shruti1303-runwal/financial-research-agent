@@ -1,0 +1,10 @@
+.env
+.venv/
+venv/
+__pycache__/
+eval/results.json
+
+# Local scratch / OS files
+.DS_Store
+Thumbs.db
+*.log
