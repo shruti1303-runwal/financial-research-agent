@@ -1,5 +1,10 @@
 # 📊 Agentic Financial Research Assistant (RAG + MCP)
 
+**Live demo:** https://finresearch-agent-shruti.netlify.app · try the example questions (saved answers load instantly; new questions take 5–30 s)
+
+<sub>Runs entirely on free tiers: UI on Netlify, API on Render, database on Neon, LLM on Gemini.
+The free Gemini quota allows a limited number of new questions per day, and visitors get 5 new questions per hour.</sub>
+
 An AI agent that answers questions about company financial reports **with source citations**,
 pulls **live market data**, and does **exact calculations**, choosing and chaining tools on its own.
 
