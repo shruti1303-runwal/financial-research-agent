@@ -1,0 +1,5 @@
+# Netlify hosts only the chat UI (static). The Python API runs on Render (see render.yaml);
+# app/static/config.js tells the UI where it is.
+[build]
+  publish = "app/static"
+  command = ""

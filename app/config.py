@@ -25,3 +25,8 @@ CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
 TOP_K = int(os.getenv("TOP_K", "5"))
 
 MCP_SERVER_PATH = ROOT / "app" / "mcp_server.py"
+
+# Public deployment settings
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+ALLOW_UPLOADS = os.getenv("ALLOW_UPLOADS", "true").lower() == "true"
+RATE_LIMIT_PER_HOUR = int(os.getenv("RATE_LIMIT_PER_HOUR", "0"))   # 0 = unlimited

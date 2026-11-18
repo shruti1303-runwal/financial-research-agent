@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
+<script src="config.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
@@ -322,7 +323,7 @@
         <div class="side-label">Try asking</div>
         <div class="ex-list" id="exList"></div>
       </div>
-      <div>
+      <div id="uploadBox">
         <div class="side-label">Add a report</div>
         <label class="drop" id="drop">
           <svg width="22" height="22"><use href="#i-upload"/></svg>
@@ -336,7 +337,7 @@
         <div class="tool-tags" id="toolTags"><span class="tag">loading…</span></div>
       </div>
     </div>
-    <div class="side-foot"><a href="/docs" target="_blank" rel="noopener">API docs ↗</a><a href="/health" target="_blank" rel="noopener">Health ↗</a></div>
+    <div class="side-foot"><a id="docsLink" href="/docs" target="_blank" rel="noopener">API docs ↗</a><a id="healthLink" href="/health" target="_blank" rel="noopener">Health ↗</a><a href="https://github.com/shruti1303-runwal/financial-research-agent" target="_blank" rel="noopener">GitHub ↗</a></div>
   </aside>
   <div class="scrim" id="scrim"></div>
 
@@ -416,20 +417,34 @@ $("scrim").onclick = closeNav;
 addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
 
 // ------------------------------------------------------------- health
-async function loadHealth() {
+// API_BASE comes from config.js: "" when FastAPI serves this page, the hosted API URL on Netlify.
+const API = String(window.API_BASE || "").replace(/\/$/, "");
+const REMOTE = API !== "";
+$("docsLink").href = API + "/docs";
+$("healthLink").href = API + "/health";
+
+async function loadHealth(attempt = 0) {
+  // A free-tier host sleeps when idle; the first request wakes it (~30-60 s).
+  const slow = setTimeout(() => {
+    $("statusText").textContent = "Waking up the server…";
+    $("statusSub").textContent = "Free hosting sleeps when idle. This takes up to a minute.";
+  }, 2500);
   try {
-    const r = await fetch("/health");
+    const r = await fetch(API + "/health");
+    if (!r.ok) throw new Error(r.statusText);
     const d = await r.json();
     $("statusDot").className = "dot ok";
     $("statusText").textContent = "Agent online";
     $("statusSub").textContent = `${d.model} · ${d.tools.length} tools`;
     $("toolTags").innerHTML = d.tools.map((t) => `<span class="tag mono">${esc(t)}</span>`).join("");
+    if (d.uploads === false) $("uploadBox").hidden = true;
   } catch {
+    if (REMOTE && attempt < 6) { clearTimeout(slow); setTimeout(() => loadHealth(attempt + 1), 10000); return; }
     $("statusDot").className = "dot bad";
     $("statusText").textContent = "API offline";
-    $("statusSub").textContent = "Start it with: uvicorn app.api:app";
+    $("statusSub").textContent = REMOTE ? "The hosted API is not responding. Try again shortly." : "Start it with: uvicorn app.api:app";
     $("toolTags").innerHTML = "";
-  }
+  } finally { clearTimeout(slow); }
 }
 
 // ------------------------------------------------------------- empty state
@@ -603,10 +618,15 @@ function addPending() {
   return { el, done: () => { clearInterval(timer); return (performance.now() - t0) / 1000; } };
 }
 function friendlyError(msg) {
+  if (/^Demo limit/.test(msg)) return ["Demo limit reached", msg];
   if (/RESOURCE_EXHAUSTED|429|quota/i.test(msg))
-    return ["Gemini free-tier limit reached", "The daily or per-minute quota for this model is used up. Wait for it to reset, or set a different CHAT_MODEL in .env and restart the server."];
+    return ["Gemini free-tier limit reached", REMOTE
+      ? "This public demo runs on a free Gemini quota, which is used up for now. It resets daily. You can also clone the repo and run it with your own key."
+      : "The daily or per-minute quota for this model is used up. Wait for it to reset, or set a different CHAT_MODEL in .env and restart the server."];
   if (/Failed to fetch|NetworkError/i.test(msg))
-    return ["Can't reach the API", "Make sure the server is running: uvicorn app.api:app"];
+    return ["Can't reach the API", REMOTE
+      ? "The hosted API may still be waking up (free tier, up to a minute). Try again in a moment."
+      : "Make sure the server is running: uvicorn app.api:app"];
   return ["Something went wrong", msg];
 }
 function fillAnswer(el, d, secs) {
@@ -657,7 +677,7 @@ async function submit(question) {
   const pending = addPending();
   scrollDown();
   try {
-    const r = await fetch("/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) });
+    const r = await fetch(API + "/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) });
     const d = await r.json().catch(() => ({ detail: r.statusText }));
     if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail));
     fillAnswer(pending.el, d, pending.done());
@@ -687,7 +707,7 @@ async function upload(file) {
   dropMsg.className = "drop-msg"; dropMsg.textContent = `Indexing ${file.name}…`;
   const fd = new FormData(); fd.append("file", file);
   try {
-    const r = await fetch("/upload", { method: "POST", body: fd });
+    const r = await fetch(API + "/upload", { method: "POST", body: fd });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || r.statusText);
     dropMsg.className = "drop-msg ok"; dropMsg.textContent = `✓ ${d.saved} indexed (${d.total_chunks_indexed} chunks total)`;

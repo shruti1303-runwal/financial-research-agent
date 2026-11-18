@@ -8,3 +8,4 @@ eval/results.json
 .DS_Store
 Thumbs.db
 *.log
+.netlify

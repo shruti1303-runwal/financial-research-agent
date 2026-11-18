@@ -1,0 +1,29 @@
+# Render Blueprint: deploys the FastAPI agent as a free web service.
+# Render dashboard -> New -> Blueprint -> pick this repo. You'll be asked for the two secrets.
+services:
+  - type: web
+    name: finresearch-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.11
+      - key: GOOGLE_API_KEY
+        sync: false          # secret: entered in the Render dashboard, never committed
+      - key: DATABASE_URL
+        sync: false          # secret: your Neon postgresql+psycopg://... URL
+      - key: CHAT_MODEL
+        value: gemini-flash-lite-latest
+      - key: EMBEDDING_MODEL
+        value: models/gemini-embedding-001
+      - key: EMBEDDING_DIM
+        value: "768"
+      - key: CORS_ORIGINS
+        value: https://finresearch-agent-shruti.netlify.app
+      - key: ALLOW_UPLOADS
+        value: "false"
+      - key: RATE_LIMIT_PER_HOUR
+        value: "5"
